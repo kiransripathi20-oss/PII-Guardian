@@ -1,0 +1,156 @@
+{
+  "name": "pii-guardian",
+  "displayName": "PII Guardian",
+  "description": "Filter PII from code and chat before sending to LLMs",
+  "version": "0.1.0",
+  "publisher": "vs-presidio",
+  "license": "SEE LICENSE IN LICENSE",
+  "icon": "shield-icon.svg",
+  "keywords": [
+    "pii",
+    "privacy",
+    "presidio",
+    "redact",
+    "anonymize",
+    "compliance",
+    "llm",
+    "data-protection"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kiransripathi20-oss/PII-Guardian.git"
+  },
+  "bugs": {
+    "url": "https://forms.gle/zg5dT8931KPX6PST8"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Chat",
+    "Machine Learning",
+    "Other"
+  ],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "pii-guardian.anonymizeSelection",
+        "title": "PII Guardian: Anonymize PII in Selection"
+      },
+      {
+        "command": "pii-guardian.deanonymizeSelection",
+        "title": "PII Guardian: Restore PII in Selection"
+      }
+    ],
+    "chatParticipants": [
+      {
+        "id": "pii-guardian.chat",
+        "name": "pii-guardian",
+        "fullName": "PII Guardian",
+        "description": "Chat with PII filtering. All PII is redacted before reaching the LLM.",
+        "isSticky": true
+      }
+    ],
+    "configuration": {
+      "title": "PII Guardian",
+      "properties": {
+        "piiGuardian.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable PII filtering"
+        },
+        "piiGuardian.entities": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "EMAIL",
+              "PHONE",
+              "CREDIT_CARD",
+              "SSN",
+              "IP_ADDRESS",
+              "PERSON",
+              "LOCATION",
+              "DATE",
+              "URL"
+            ]
+          },
+          "default": [
+            "EMAIL",
+            "PHONE",
+            "CREDIT_CARD",
+            "SSN",
+            "IP_ADDRESS",
+            "PERSON"
+          ],
+          "description": "PII entity types to detect and redact"
+        },
+        "piiGuardian.redactWith": {
+          "type": "string",
+          "enum": [
+            "placeholder",
+            "mask",
+            "hash"
+          ],
+          "default": "placeholder",
+          "description": "How to redact PII: placeholder (<PERSON_1>), mask (****), or hash"
+        },
+        "piiGuardian.enableDeAnonymization": {
+          "type": "boolean",
+          "default": true,
+          "description": "Restore original PII values in LLM responses where possible"
+        },
+        "piiGuardian.pythonPresidioPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Python environment with Presidio installed. Leave empty to use built-in engine."
+        },
+        "piiGuardian.llmEndpoint": {
+          "type": "string",
+          "default": "",
+          "description": "OpenAI-compatible API endpoint for the LLM (e.g. https://api.openai.com/v1/chat/completions). Leave empty to use local Ollama."
+        },
+        "piiGuardian.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for the LLM endpoint (not needed for local Ollama).",
+          "editPresentation": "password"
+        },
+        "piiGuardian.ollamaModel": {
+          "type": "string",
+          "default": "",
+          "description": "Ollama model to use. Leave empty to auto-detect from installed models."
+        },
+        "piiGuardian.ollamaEndpoint": {
+          "type": "string",
+          "default": "http://localhost:11434",
+          "description": "Ollama server URL."
+        },
+        "piiGuardian.licenseKey": {
+          "type": "string",
+          "default": "",
+          "description": "Pro license key. Without a license, advanced entities (PERSON, LOCATION, DATE), hash redaction, inline warnings, and chat participant are disabled.",
+          "editPresentation": "password"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "webpack",
+    "watch": "webpack --watch",
+    "package": "webpack --mode production --devtool hidden-source-map",
+    "lint": "npx tsc --noEmit",
+    "pretest": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "ts-loader": "^9.5.1",
+    "typescript": "^5.4.0",
+    "webpack": "^5.90.0",
+    "webpack-cli": "^5.1.4"
+  }
+}
