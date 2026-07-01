@@ -45,8 +45,38 @@ export function createChatParticipant(context: vscode.ExtensionContext): vscode.
         sessionStates.set(sessionId, state);
       }
 
+      let userPrompt = request.prompt;
+      if (request.references && request.references.length > 0) {
+        const extraContent: string[] = [];
+        for (const ref of request.references) {
+          let uri: vscode.Uri | undefined;
+          if (ref.value instanceof vscode.Uri) {
+            uri = ref.value;
+          } else if (typeof ref.value === 'string') {
+            try { uri = vscode.Uri.parse(ref.value); } catch { /* skip */ }
+          }
+          if (uri) {
+            try {
+              const content = await vscode.workspace.fs.readFile(uri);
+              const text = new TextDecoder().decode(content);
+              const filePath = vscode.workspace.asRelativePath(uri);
+              const formatted = '```\n// ' + filePath + '\n' + text + '\n```';
+              if (ref.range) {
+                const [start, end] = ref.range;
+                userPrompt = userPrompt.slice(0, start) + formatted + userPrompt.slice(end);
+              } else {
+                extraContent.push(formatted);
+              }
+            } catch { /* skip unreadable files */ }
+          }
+        }
+        if (extraContent.length > 0) {
+          userPrompt += '\n\n' + extraContent.join('\n\n');
+        }
+      }
+
       const historyText = state.history.map(h => `${h.role}: ${h.content}`).join('\n');
-      const fullPrompt = historyText ? `${historyText}\nuser: ${request.prompt}` : request.prompt;
+      const fullPrompt = historyText ? `${historyText}\nuser: ${userPrompt}` : userPrompt;
 
       const piiResult = anonymizeText(fullPrompt, {
         entities: enabledEntities,

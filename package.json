@@ -2,9 +2,9 @@
   "name": "pii-guardian",
   "displayName": "PII Guardian",
   "description": "Filter PII from code and chat before sending to LLMs",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "DevSpark",
-  "license": "MIT",
+  "license": "SEE LICENSE IN LICENSE",
   "icon": "icon.png",
   "keywords": [
     "pii",
