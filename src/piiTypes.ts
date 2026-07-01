@@ -7,7 +7,9 @@ export type PiiEntityType =
   | 'PERSON'
   | 'LOCATION'
   | 'DATE'
-  | 'URL';
+  | 'URL'
+  | 'PASSPORT_US'
+  | 'DRIVERS_LICENSE_US';
 
 export type RedactMethod = 'placeholder' | 'mask' | 'hash';
 

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { anonymizeText, analyzePii } from './piiEngine';
 import { createChatParticipant } from './chatParticipant';
 import { createPiiDecorator } from './piiDecorator';
-import { isFeatureEnabled, filterEntitiesByTier } from './license';
+import { filterEntitiesByTier, initializeTrial } from './license';
 import { PiiEntityType, RedactMethod } from './piiTypes';
 
 function getConfig<T>(key: string, defaultValue: T): T {
@@ -10,24 +10,23 @@ function getConfig<T>(key: string, defaultValue: T): T {
 }
 
 export function activate(context: vscode.ExtensionContext) {
-  showWelcomeIfFirstRun(context);
+  initializeTrial(context);
 
   context.subscriptions.push(
     vscode.commands.registerCommand('pii-guardian.anonymizeSelection', () => anonymizeSelectionCommand()),
+    vscode.commands.registerCommand('pii-guardian.anonymizeFile', () => anonymizeFileCommand()),
     vscode.commands.registerCommand('pii-guardian.deanonymizeSelection', () => deanonymizeSelectionCommand()),
-    ...(isFeatureEnabled('inline-warnings')
-      ? [vscode.languages.registerInlineCompletionItemProvider({ pattern: '**' }, new GuardianInlineProvider())]
-      : []),
+    vscode.commands.registerCommand('pii-guardian.maskSelection', () => maskSelectionCommand()),
+    vscode.languages.registerInlineCompletionItemProvider({ pattern: '**' }, new GuardianInlineProvider()),
     vscode.languages.registerCodeActionsProvider({ pattern: '**' }, new AnonymizeCodeActionProvider(), {
       providedCodeActionKinds: AnonymizeCodeActionProvider.providedCodeActionKinds,
     }),
+    vscode.languages.registerCodeLensProvider({ pattern: '**' }, new AnonymizeCodeLensProvider()),
   );
 
-  if (isFeatureEnabled('chat-participant')) {
-    const participant = createChatParticipant(context);
-    if (participant) {
-      context.subscriptions.push(participant);
-    }
+  const participant = createChatParticipant(context);
+  if (participant) {
+    context.subscriptions.push(participant);
   }
 
   context.subscriptions.push(
@@ -39,13 +38,40 @@ export function activate(context: vscode.ExtensionContext) {
   );
 
   createPiiDecorator(context);
+}
 
-  const statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-  statusBar.text = '$(shield) PII Guardian';
-  statusBar.tooltip = 'PII Guardian';
-  statusBar.command = 'pii-guardian.anonymizeSelection';
-  statusBar.show();
-  context.subscriptions.push(statusBar);
+function anonymizeFileCommand() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showWarningMessage('No active editor.');
+    return;
+  }
+
+  const text = editor.document.getText();
+  if (!text) {
+    vscode.window.showWarningMessage('File is empty.');
+    return;
+  }
+
+  const entities = getConfig<PiiEntityType[]>('entities', ['EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON', 'PASSPORT_US', 'DRIVERS_LICENSE_US']);
+  const redactWith = getConfig<RedactMethod>('redactWith', 'placeholder');
+
+  const result = anonymizeText(text, { entities, redactWith });
+
+  if (result.entities.length === 0) {
+    vscode.window.showInformationMessage('PII Guardian: No PII detected in file.');
+    return;
+  }
+
+  editor.edit(editBuilder => {
+    const fullRange = new vscode.Range(
+      editor.document.positionAt(0),
+      editor.document.positionAt(text.length)
+    );
+    editBuilder.replace(fullRange, result.anonymizedText);
+  });
+
+  vscode.window.showInformationMessage(`PII Guardian: Redacted ${result.entities.length} PII item(s) in the file.`);
 }
 
 function anonymizeSelectionCommand() {
@@ -63,7 +89,7 @@ function anonymizeSelectionCommand() {
     return;
   }
 
-  const entities = getConfig<PiiEntityType[]>('entities', ['EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON']);
+  const entities = getConfig<PiiEntityType[]>('entities', ['EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON', 'PASSPORT_US', 'DRIVERS_LICENSE_US']);
   const redactWith = getConfig<RedactMethod>('redactWith', 'placeholder');
 
   const result = anonymizeText(text, { entities, redactWith });
@@ -85,6 +111,26 @@ function anonymizeSelectionCommand() {
   } else {
     vscode.window.showInformationMessage('PII Guardian: No PII detected.');
   }
+}
+
+function maskSelectionCommand() {
+  const editor = vscode.window.activeTextEditor;
+  if (!editor) {
+    vscode.window.showWarningMessage('No active editor.');
+    return;
+  }
+
+  const selection = editor.selection;
+  if (selection.isEmpty) {
+    vscode.window.showWarningMessage('Select text to mask.');
+    return;
+  }
+
+  const label = getConfig<string>('maskLabel', 'Number');
+  editor.edit(editBuilder => {
+    editBuilder.replace(selection, `[${label}]`);
+  });
+  vscode.window.showInformationMessage(`PII Guardian: Replaced selection with [${label}].`);
 }
 
 function deanonymizeSelectionCommand() {
@@ -113,7 +159,7 @@ class GuardianInlineProvider implements vscode.InlineCompletionItemProvider {
     const line = document.lineAt(position.line);
 
     if (line.text.length > 5 && line.text.length < 200) {
-      const entities = getConfig<PiiEntityType[]>('entities', ['EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON']);
+      const entities = getConfig<PiiEntityType[]>('entities', ['EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON', 'PASSPORT_US', 'DRIVERS_LICENSE_US']);
       const result = anonymizeText(line.text, { entities });
 
       if (result.entities.length > 0) {
@@ -140,61 +186,70 @@ class AnonymizeCodeActionProvider implements vscode.CodeActionProvider {
     const isEnabled = getConfig<boolean>('enabled', true);
     if (!isEnabled) return undefined;
 
-    let text: string;
-    let targetRange: vscode.Range;
+    const actions: vscode.CodeAction[] = [];
+    const maskLabel = getConfig<string>('maskLabel', 'Number');
 
     if (!range.isEmpty) {
-      text = document.getText(range);
-      targetRange = range;
+      const text = document.getText(range);
+      if (text) {
+        const maskAction = new vscode.CodeAction(`Mask with [${maskLabel}]`, vscode.CodeActionKind.QuickFix);
+        maskAction.edit = new vscode.WorkspaceEdit();
+        maskAction.edit.replace(document.uri, range, `[${maskLabel}]`);
+        actions.push(maskAction);
+
+        const entities = getConfig<PiiEntityType[]>('entities', ['EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON', 'PASSPORT_US', 'DRIVERS_LICENSE_US']);
+        const redactWith = getConfig<RedactMethod>('redactWith', 'placeholder');
+        const result = anonymizeText(text, { entities, redactWith });
+        if (result.entities.length > 0) {
+          const piiAction = new vscode.CodeAction('Anonymize PII in selection', vscode.CodeActionKind.QuickFix);
+          piiAction.edit = new vscode.WorkspaceEdit();
+          piiAction.edit.replace(document.uri, range, result.anonymizedText);
+          actions.push(piiAction);
+        }
+      }
     } else {
-      const entities = filterEntitiesByTier(getConfig<PiiEntityType[]>('entities', ['EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON']));
+      const cursorEntities = filterEntitiesByTier(getConfig<PiiEntityType[]>('entities', ['EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON', 'PASSPORT_US', 'DRIVERS_LICENSE_US']));
       const line = document.lineAt(range.start.line);
       const offset = document.offsetAt(range.start);
-      const piiEntities = analyzePii(line.text, entities);
+      const piiEntities = analyzePii(line.text, cursorEntities);
       const lineStart = document.offsetAt(line.range.start);
       const entityAtCursor = piiEntities.find(
         e => offset >= lineStart + e.start && offset <= lineStart + e.end
       );
-      if (!entityAtCursor) return undefined;
-      text = entityAtCursor.text;
-      targetRange = new vscode.Range(
-        document.positionAt(lineStart + entityAtCursor.start),
-        document.positionAt(lineStart + entityAtCursor.end),
-      );
+      if (entityAtCursor) {
+        const targetRange = new vscode.Range(
+          document.positionAt(lineStart + entityAtCursor.start),
+          document.positionAt(lineStart + entityAtCursor.end),
+        );
+        const redactWith = getConfig<RedactMethod>('redactWith', 'placeholder');
+        const result = anonymizeText(entityAtCursor.text, { redactWith });
+        const action = new vscode.CodeAction('Anonymize this', vscode.CodeActionKind.QuickFix);
+        action.edit = new vscode.WorkspaceEdit();
+        action.edit.replace(document.uri, targetRange, result.anonymizedText);
+        actions.push(action);
+      }
     }
 
-    if (!text) return undefined;
-
-    const redactWith = getConfig<RedactMethod>('redactWith', 'placeholder');
-
-    const result = anonymizeText(text, { redactWith });
-    if (result.entities.length === 0) return undefined;
-
-    const action = new vscode.CodeAction('Anonymize this', vscode.CodeActionKind.QuickFix);
-    action.edit = new vscode.WorkspaceEdit();
-    action.edit.replace(document.uri, targetRange, result.anonymizedText);
-    return [action];
+    return actions.length > 0 ? actions : undefined;
   }
 }
 
-function showWelcomeIfFirstRun(context: vscode.ExtensionContext) {
-  const hasSeenWelcome = context.globalState.get<boolean>('piiGuardian.welcomeShown', false);
-  if (hasSeenWelcome) return;
+class AnonymizeCodeLensProvider implements vscode.CodeLensProvider {
+  provideCodeLenses(document: vscode.TextDocument): vscode.CodeLens[] {
+    const isEnabled = getConfig<boolean>('enabled', true);
+    if (!isEnabled || document.lineCount === 0) return [];
 
-  context.globalState.update('piiGuardian.welcomeShown', true);
+    const line0 = document.lineAt(0);
+    const range = new vscode.Range(0, 0, 0, 0);
 
-  const tier = isFeatureEnabled('inline-warnings') ? 'Pro' : 'Free';
-  vscode.window.showInformationMessage(
-    `PII Guardian (${tier}) installed — PII in your editor is now highlighted. Click to learn more.`,
-    'Learn More'
-  ).then(selection => {
-    if (selection === 'Learn More') {
-      vscode.commands.executeCommand(
-        'markdown.showPreview',
-        vscode.Uri.joinPath(context.extensionUri, 'README.md')
-      );
-    }
-  });
+    return [
+      new vscode.CodeLens(range, {
+        title: '🔒 Anonymize this file',
+        command: 'pii-guardian.anonymizeFile',
+        arguments: [],
+      }),
+    ];
+  }
 }
 
 export function deactivate() { }

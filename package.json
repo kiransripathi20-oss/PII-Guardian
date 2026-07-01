@@ -2,10 +2,10 @@
   "name": "pii-guardian",
   "displayName": "PII Guardian",
   "description": "Filter PII from code and chat before sending to LLMs",
-  "version": "0.1.0",
-  "publisher": "vs-presidio",
-  "license": "SEE LICENSE IN LICENSE",
-  "icon": "shield-icon.svg",
+  "version": "0.2.0",
+  "publisher": "DevSpark",
+  "license": "MIT",
+  "icon": "icon.png",
   "keywords": [
     "pii",
     "privacy",
@@ -31,7 +31,9 @@
     "Machine Learning",
     "Other"
   ],
-  "activationEvents": ["onStartupFinished"],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
@@ -42,6 +44,14 @@
       {
         "command": "pii-guardian.deanonymizeSelection",
         "title": "PII Guardian: Restore PII in Selection"
+      },
+      {
+        "command": "pii-guardian.maskSelection",
+        "title": "PII Guardian: Mask Selection"
+      },
+      {
+        "command": "pii-guardian.anonymizeFile",
+        "title": "PII Guardian: Anonymize File"
       }
     ],
     "chatParticipants": [
@@ -74,7 +84,9 @@
               "PERSON",
               "LOCATION",
               "DATE",
-              "URL"
+              "URL",
+              "PASSPORT_US",
+              "DRIVERS_LICENSE_US"
             ]
           },
           "default": [
@@ -83,7 +95,9 @@
             "CREDIT_CARD",
             "SSN",
             "IP_ADDRESS",
-            "PERSON"
+            "PERSON",
+            "PASSPORT_US",
+            "DRIVERS_LICENSE_US"
           ],
           "description": "PII entity types to detect and redact"
         },
@@ -95,7 +109,7 @@
             "hash"
           ],
           "default": "placeholder",
-          "description": "How to redact PII: placeholder (<PERSON_1>), mask (****), or hash"
+          "description": "How to redact PII: placeholder (<PERSON_1>), mask (****), or hash ([PERSON_a1b2c3d4])"
         },
         "piiGuardian.enableDeAnonymization": {
           "type": "boolean",
@@ -128,11 +142,10 @@
           "default": "http://localhost:11434",
           "description": "Ollama server URL."
         },
-        "piiGuardian.licenseKey": {
+        "piiGuardian.maskLabel": {
           "type": "string",
-          "default": "",
-          "description": "Pro license key. Without a license, advanced entities (PERSON, LOCATION, DATE), hash redaction, inline warnings, and chat participant are disabled.",
-          "editPresentation": "password"
+          "default": "Number",
+          "description": "Label to use when manually masking selected text (e.g. \"Number\", \"ID\", \"PII\")."
         }
       }
     }
@@ -148,6 +161,7 @@
   "devDependencies": {
     "@types/node": "^20.0.0",
     "@types/vscode": "^1.85.0",
+    "sharp": "^0.35.2",
     "ts-loader": "^9.5.1",
     "typescript": "^5.4.0",
     "webpack": "^5.90.0",
