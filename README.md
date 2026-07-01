@@ -43,7 +43,7 @@ Filter PII from code and chat before sending to LLMs.
 | `piiGuardian.llmEndpoint` | `""` | OpenAI-compatible API endpoint |
 | `piiGuardian.apiKey` | `""` | API key for the LLM endpoint |
 
-<video src="https://github.com/kiransripathi20-oss/PII-Guardian/raw/main/media/PII_Guardian_Install_and_Configure.mp4" width="100%" controls></video>
+<video src="https://github.com/user-attachments/assets/ebd8b7f1-6405-47bc-aa72-4a84ee719cb1" width="100%" controls></video>
 
 ## Detected PII Types
 
@@ -70,7 +70,7 @@ Filter PII from code and chat before sending to LLMs.
 
 Open any file. PII is automatically highlighted. Click the lightbulb or use the command palette to anonymize.
 
-<video src="https://github.com/kiransripathi20-oss/PII-Guardian/raw/main/media/PII_Guardian_Anonymize_File.mp4" width="100%" controls></video>
+<video src="https://github.com/user-attachments/assets/7d215629-ea6d-4deb-8c7b-ca9705bc8370" width="100%" controls></video>
 
 ### Chat
 
@@ -82,7 +82,7 @@ Open VS Code Chat and use `@pii-guardian`:
 
 Your message is scanned for PII, redacted before reaching the LLM, and the response has PII restored.
 
-<video src="https://github.com/kiransripathi20-oss/PII-Guardian/raw/main/media/PII_Guardian_Chat.mp4" width="100%" controls></video>
+<video src="https://github.com/user-attachments/assets/2d6f036e-ea54-4a6f-814f-4215132db308" width="100%" controls></video>
 
 ## License
 
