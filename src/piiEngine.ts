@@ -56,7 +56,45 @@ const BUILT_IN_PATTERNS: AnalyzerPattern[] = [
     score: 0.3,
     description: 'US city name',
   },
+  {
+    type: 'PASSPORT_US',
+    regex: /\b[A-Z]\d{8}\b/g,
+    score: 0.7,
+    description: 'US passport number',
+  },
+  {
+    type: 'PASSPORT_US',
+    regex: /\b\d{9}\b/g,
+    score: 0.5,
+    description: 'US passport number (9-digit format)',
+  },
+  {
+    type: 'DRIVERS_LICENSE_US',
+    regex: /\b(?:[A-Z]\d{7}|\d{8})\b/g,
+    score: 0.5,
+    description: 'US driver\'s license number',
+  },
+  {
+    type: 'DRIVERS_LICENSE_US',
+    regex: /\b[A-Z]\d{3}[-.\s]\d{4}[-.\s]\d{4}\b/g,
+    score: 0.6,
+    description: 'US driver\'s license number (hyphenated)',
+  },
 ];
+
+const ALWAYS_DETECT: PiiEntityType[] = ['PASSPORT_US', 'DRIVERS_LICENSE_US'];
+
+const CONTEXT_REQUIRED: Partial<Record<PiiEntityType, string[]>> = {
+  PASSPORT_US: ['passport', 'travel document'],
+  DRIVERS_LICENSE_US: ['driver', 'drivers', "driver's", "driver\u2019s", ' dl ', ' d.l.', 'license', 'lic', 'identification'],
+};
+
+function hasContextHint(text: string, index: number, value: string, keywords: string[]): boolean {
+  const windowLen = 60;
+  const before = text.substring(Math.max(0, index - windowLen), index).toLowerCase().replace(/\u2019/g, "'");
+  const after = text.substring(index + value.length, Math.min(text.length, index + value.length + windowLen)).toLowerCase().replace(/\u2019/g, "'");
+  return keywords.some(kw => before.includes(kw) || after.includes(kw));
+}
 
 function hashString(value: string): string {
   let hash = 0;
@@ -76,7 +114,7 @@ export function analyzePii(
   const seen = new Set<string>();
 
   const patterns = enabledEntities && enabledEntities.length > 0
-    ? BUILT_IN_PATTERNS.filter(p => enabledEntities.includes(p.type))
+    ? BUILT_IN_PATTERNS.filter(p => enabledEntities.includes(p.type) || ALWAYS_DETECT.includes(p.type))
     : BUILT_IN_PATTERNS;
 
   for (const pattern of patterns) {
@@ -88,6 +126,9 @@ export function analyzePii(
       seen.add(key);
 
       if (isLikelyCode(match[0], text, match.index)) continue;
+
+      const contextKeywords = CONTEXT_REQUIRED[pattern.type];
+      if (contextKeywords && !hasContextHint(text, match.index, match[0], contextKeywords)) continue;
 
       entities.push({
         type: pattern.type,

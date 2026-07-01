@@ -33,7 +33,7 @@ export function createChatParticipant(context: vscode.ExtensionContext): vscode.
       }
 
       const enabledEntities = getConfig<PiiEntityType[]>('entities', [
-        'EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON'
+        'EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON', 'PASSPORT_US', 'DRIVERS_LICENSE_US'
       ]);
       const redactWith = getConfig<RedactMethod>('redactWith', 'placeholder');
       const enableDeAnon = getConfig<boolean>('enableDeAnonymization', true);
