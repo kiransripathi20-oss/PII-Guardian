@@ -40,7 +40,7 @@ Filter PII, secrets, and sensitive keys from code and chat before sending to LLM
 ## Configuration
 
 | Setting | Default | Description |
-|---|---|---|---|
+|---|---|---|
 | `piiGuardian.enabled` | `true` | Enable/disable PII filtering |
 | `piiGuardian.entities` | `EMAIL, PHONE, CREDIT_CARD, SSN, IP_ADDRESS, PERSON, PASSPORT_US, DRIVERS_LICENSE_US, SECRET_KEY, API_KEY, JWT, PEM_KEY, CONNECTION_STRING` | Entity types to detect and redact |
 | `piiGuardian.redactWith` | `placeholder` | Redaction method: `placeholder`, `mask`, or `hash` |
