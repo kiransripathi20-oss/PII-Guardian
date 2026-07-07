@@ -5,7 +5,7 @@ Filter PII, secrets, and sensitive keys from code and chat before sending to LLM
 ## Features
 
 | Feature | Description |
-|---|---|---|
+|---|---|
 | **PII Highlighting** | Detected PII highlighted with orange background + scrollbar marks. Hover to see entity type and confidence. |
 | **Code Action (Lightbulb)** | Click on PII text and a lightbulb offers "Anonymize this". Also works on selections. |
 | **Anonymize Selection** | Replace PII with `placeholder` (`<EMAIL_1>`), `mask` (`***`), or `hash` (`[EMAIL_a1b2c3d4]`). |
