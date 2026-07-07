@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { anonymizeText, analyzePii } from './piiEngine';
 import { createChatParticipant } from './chatParticipant';
 import { createPiiDecorator } from './piiDecorator';
-import { filterEntitiesByTier, initializeTrial } from './license';
+import { DEFAULT_ENTITIES, filterEntitiesByTier, initializeTrial } from './license';
 import { PiiEntityType, RedactMethod } from './piiTypes';
 
 function getConfig<T>(key: string, defaultValue: T): T {
@@ -53,7 +53,7 @@ function anonymizeFileCommand() {
     return;
   }
 
-  const entities = getConfig<PiiEntityType[]>('entities', ['EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON', 'PASSPORT_US', 'DRIVERS_LICENSE_US']);
+  const entities = getConfig<PiiEntityType[]>('entities', DEFAULT_ENTITIES);
   const redactWith = getConfig<RedactMethod>('redactWith', 'placeholder');
 
   const result = anonymizeText(text, { entities, redactWith });
@@ -89,7 +89,7 @@ function anonymizeSelectionCommand() {
     return;
   }
 
-  const entities = getConfig<PiiEntityType[]>('entities', ['EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON', 'PASSPORT_US', 'DRIVERS_LICENSE_US']);
+  const entities = getConfig<PiiEntityType[]>('entities', DEFAULT_ENTITIES);
   const redactWith = getConfig<RedactMethod>('redactWith', 'placeholder');
 
   const result = anonymizeText(text, { entities, redactWith });
@@ -159,7 +159,7 @@ class GuardianInlineProvider implements vscode.InlineCompletionItemProvider {
     const line = document.lineAt(position.line);
 
     if (line.text.length > 5 && line.text.length < 200) {
-      const entities = getConfig<PiiEntityType[]>('entities', ['EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON', 'PASSPORT_US', 'DRIVERS_LICENSE_US']);
+      const entities = getConfig<PiiEntityType[]>('entities', DEFAULT_ENTITIES);
       const result = anonymizeText(line.text, { entities });
 
       if (result.entities.length > 0) {
@@ -197,7 +197,7 @@ class AnonymizeCodeActionProvider implements vscode.CodeActionProvider {
         maskAction.edit.replace(document.uri, range, `[${maskLabel}]`);
         actions.push(maskAction);
 
-        const entities = getConfig<PiiEntityType[]>('entities', ['EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON', 'PASSPORT_US', 'DRIVERS_LICENSE_US']);
+        const entities = getConfig<PiiEntityType[]>('entities', DEFAULT_ENTITIES);
         const redactWith = getConfig<RedactMethod>('redactWith', 'placeholder');
         const result = anonymizeText(text, { entities, redactWith });
         if (result.entities.length > 0) {
@@ -208,7 +208,7 @@ class AnonymizeCodeActionProvider implements vscode.CodeActionProvider {
         }
       }
     } else {
-      const cursorEntities = filterEntitiesByTier(getConfig<PiiEntityType[]>('entities', ['EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON', 'PASSPORT_US', 'DRIVERS_LICENSE_US']));
+      const cursorEntities = filterEntitiesByTier(getConfig<PiiEntityType[]>('entities', DEFAULT_ENTITIES));
       const line = document.lineAt(range.start.line);
       const offset = document.offsetAt(range.start);
       const piiEntities = analyzePii(line.text, cursorEntities);

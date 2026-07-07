@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { anonymizeText, deanonymizeText } from './piiEngine';
+import { DEFAULT_ENTITIES } from './license';
 import { PiiEntityType, RedactMethod } from './piiTypes';
 
 interface SessionState {
@@ -32,9 +33,7 @@ export function createChatParticipant(context: vscode.ExtensionContext): vscode.
         return { metadata: { filtered: false } };
       }
 
-      const enabledEntities = getConfig<PiiEntityType[]>('entities', [
-        'EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON', 'PASSPORT_US', 'DRIVERS_LICENSE_US'
-      ]);
+      const enabledEntities = getConfig<PiiEntityType[]>('entities', DEFAULT_ENTITIES);
       const redactWith = getConfig<RedactMethod>('redactWith', 'placeholder');
       const enableDeAnon = getConfig<boolean>('enableDeAnonymization', true);
 

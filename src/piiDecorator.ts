@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { analyzePii } from './piiEngine';
-import { filterEntitiesByTier } from './license';
+import { DEFAULT_ENTITIES, filterEntitiesByTier } from './license';
 import { PiiEntityType } from './piiTypes';
 
 const piiDecorationType = vscode.window.createTextEditorDecorationType({
@@ -28,9 +28,7 @@ export function updatePiiDecorations(editor: vscode.TextEditor | undefined) {
     return;
   }
 
-  const entities = filterEntitiesByTier(vscode.workspace.getConfiguration('piiGuardian').get<PiiEntityType[]>('entities', [
-    'EMAIL', 'PHONE', 'CREDIT_CARD', 'SSN', 'IP_ADDRESS', 'PERSON'
-  ]));
+  const entities = filterEntitiesByTier(vscode.workspace.getConfiguration('piiGuardian').get<PiiEntityType[]>('entities', DEFAULT_ENTITIES));
 
   const piiEntities = analyzePii(text, entities);
 

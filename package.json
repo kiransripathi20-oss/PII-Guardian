@@ -2,7 +2,7 @@
   "name": "pii-guardian",
   "displayName": "PII Guardian",
   "description": "Filter PII from code and chat before sending to LLMs",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "DevSpark",
   "license": "SEE LICENSE IN LICENSE",
   "icon": "icon.png",
@@ -86,7 +86,12 @@
               "DATE",
               "URL",
               "PASSPORT_US",
-              "DRIVERS_LICENSE_US"
+              "DRIVERS_LICENSE_US",
+              "SECRET_KEY",
+              "API_KEY",
+              "JWT",
+              "PEM_KEY",
+              "CONNECTION_STRING"
             ]
           },
           "default": [
@@ -97,7 +102,12 @@
             "IP_ADDRESS",
             "PERSON",
             "PASSPORT_US",
-            "DRIVERS_LICENSE_US"
+            "DRIVERS_LICENSE_US",
+            "SECRET_KEY",
+            "API_KEY",
+            "JWT",
+            "PEM_KEY",
+            "CONNECTION_STRING"
           ],
           "description": "PII entity types to detect and redact"
         },

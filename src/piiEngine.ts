@@ -1,6 +1,8 @@
 import { filterEntitiesByTier, filterRedactMethods } from './license';
 import { AnalyzerPattern, PiiEntity, PiiEntityType, PiiResult, RedactMethod } from './piiTypes';
 
+const CODE_SAFE_TYPES: PiiEntityType[] = ['SECRET_KEY', 'API_KEY', 'JWT', 'PEM_KEY', 'CONNECTION_STRING'];
+
 const BUILT_IN_PATTERNS: AnalyzerPattern[] = [
   {
     type: 'EMAIL',
@@ -80,6 +82,54 @@ const BUILT_IN_PATTERNS: AnalyzerPattern[] = [
     score: 0.6,
     description: 'US driver\'s license number (hyphenated)',
   },
+  {
+    type: 'SECRET_KEY',
+    regex: /"(?:password|passwd|secret|api[_-]?key|api[_-]?secret|auth[_-]?token|access[_-]?token|private[_-]?key|secret[_-]?key)"\s*:\s*"[^"]+"/gi,
+    score: 0.92,
+    description: 'Secret value in JSON',
+  },
+  {
+    type: 'SECRET_KEY',
+    regex: /\b(?:password|passwd|secret|api[_-]?key|api[_-]?secret|auth[_-]?token|access[_-]?token|private[_-]?key|secret[_-]?key)\s*:\s*['"]?[^\s'"]+['"]?\b/gi,
+    score: 0.82,
+    description: 'Secret value in YAML/assignment',
+  },
+  {
+    type: 'SECRET_KEY',
+    regex: /\b(?:export\s+)?[A-Z_]+(?:SECRET|PASSWORD|TOKEN|API_KEY|API_SECRET)[A-Z_]*\s*=\s*['"]?[^\s'"]+['"]?\b/gi,
+    score: 0.88,
+    description: 'Secret environment variable assignment',
+  },
+  {
+    type: 'API_KEY',
+    regex: /\b(?:sk-(?:proj-|svc-|org-)?[a-zA-Z0-9]{20,}|sk_(?:live|test)_[a-zA-Z0-9]{20,}|pk_(?:live|test)_[a-zA-Z0-9]{20,}|rk_(?:live|test)_[a-zA-Z0-9]{20,}|gh[ponsu]_[a-zA-Z0-9]{16,}|AKIA[0-9A-Z]{16}|da2-[a-zA-Z0-9]{20,}|xox[baprs]-[a-zA-Z0-9-]{10,}|whsec_[a-zA-Z0-9]{16,})\b/g,
+    score: 0.96,
+    description: 'API key (known format)',
+  },
+  {
+    type: 'JWT',
+    regex: /\beyJ[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\.[a-zA-Z0-9_-]+\b/g,
+    score: 0.96,
+    description: 'JSON Web Token',
+  },
+  {
+    type: 'PEM_KEY',
+    regex: /-----BEGIN\s[A-Z\s]+KEY-----[a-zA-Z0-9\s+\/=]*-----END\s[A-Z\s]+KEY-----/g,
+    score: 0.98,
+    description: 'PEM-encoded cryptographic key',
+  },
+  {
+    type: 'CONNECTION_STRING',
+    regex: /\b(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis|amqp|rabbitmq|mssql):\/\/[^\s:@\/]+:[^\s:@\/]+@[^\s<>"']+/g,
+    score: 0.95,
+    description: 'Database connection string (with credentials)',
+  },
+  {
+    type: 'CONNECTION_STRING',
+    regex: /\b(?:Server|Data Source|Host)\s*=\s*[^;]+\s*;\s*(?:Database|Initial Catalog)\s*=\s*[^;]+(?:\s*;\s*(?:User Id|Username)\s*=\s*[^;]+)?(?:\s*;\s*Password\s*=\s*[^;]+)?\s*;?\b/gi,
+    score: 0.88,
+    description: 'SQL Server/OLE DB connection string',
+  },
 ];
 
 const ALWAYS_DETECT: PiiEntityType[] = ['PASSPORT_US', 'DRIVERS_LICENSE_US'];
@@ -125,7 +175,7 @@ export function analyzePii(
       if (seen.has(key)) continue;
       seen.add(key);
 
-      if (isLikelyCode(match[0], text, match.index)) continue;
+      if (!CODE_SAFE_TYPES.includes(pattern.type) && isLikelyCode(match[0], text, match.index)) continue;
 
       const contextKeywords = CONTEXT_REQUIRED[pattern.type];
       if (contextKeywords && !hasContextHint(text, match.index, match[0], contextKeywords)) continue;
@@ -207,6 +257,33 @@ function getPlaceholder(type: PiiEntityType, index: number, method: RedactMethod
       }
       if (type === 'CREDIT_CARD') {
         return `****-****-****-${text.slice(-4)}`;
+      }
+      if (type === 'SECRET_KEY') {
+        const colonIdx = text.indexOf(':');
+        if (colonIdx > 0 && colonIdx < 30) {
+          return text.substring(0, colonIdx + 1) + ' "****"';
+        }
+        const eqIdx = text.indexOf('=');
+        if (eqIdx > 0 && eqIdx < 40) {
+          return text.substring(0, eqIdx + 1) + ' "****"';
+        }
+        return '*'.repeat(text.length);
+      }
+      if (type === 'API_KEY') {
+        return text.length > 8 ? `****...${text.slice(-4)}` : '****';
+      }
+      if (type === 'JWT') {
+        return '****.****.****';
+      }
+      if (type === 'PEM_KEY') {
+        return `-----BEGIN REDACTED KEY-----\n[redacted]\n-----END REDACTED KEY-----`;
+      }
+      if (type === 'CONNECTION_STRING') {
+        const protoMatch = text.match(/^(\w+:\/\/)/);
+        if (protoMatch) {
+          return `${protoMatch[1]}****:****@****`;
+        }
+        return '*'.repeat(text.length);
       }
       return '*'.repeat(text.length);
     case 'hash':

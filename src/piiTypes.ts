@@ -9,7 +9,12 @@ export type PiiEntityType =
   | 'DATE'
   | 'URL'
   | 'PASSPORT_US'
-  | 'DRIVERS_LICENSE_US';
+  | 'DRIVERS_LICENSE_US'
+  | 'SECRET_KEY'
+  | 'API_KEY'
+  | 'JWT'
+  | 'PEM_KEY'
+  | 'CONNECTION_STRING';
 
 export type RedactMethod = 'placeholder' | 'mask' | 'hash';
 
